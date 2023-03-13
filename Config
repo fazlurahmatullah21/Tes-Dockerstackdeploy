@@ -1,0 +1,77 @@
+lengkapnya di Vscode
+
+LAB docker : 3 Server docker swarm with 1 server Load balance
+
+requitment : Ubuntu 20.04 LTS + Docker engine 23.0.1 
+
+1. install docker in 3 server >> with all step include (done)
+2. install HAproxy for load balance >> with all step include (done)
+
+3. server1 membuat cluster swarm (docker swarm init)
+4. server2&3 join cluster (docker swarm join)
+5. server2&3 di promote jadi manager(docker node promote)
+6. buat network overlay untuk cluster atau secara default sudah terbuat (berguna untuk komunikasi host dengan antar container) (network overlay)
+7. buat directory tes-web-app di server1
+8. di dalam directory tes-web-app. buat file : docker-compose.yml (berisikan syntax dan build image untuk webapp berbasis CI (code igniter) ) 
+   version: '3'
+services:
+  mariadb:
+    image: docker.io/bitnami/mariadb:10.6
+    environment:
+      # ALLOW_EMPTY_PASSWORD is recommended only for development.
+      - ALLOW_EMPTY_PASSWORD=yes
+      - MARIADB_USER=bn_myapp
+      - MARIADB_DATABASE=bitnami_myapp
+  myapp:
+    image: docker.io/bitnami/codeigniter:4
+    ports:
+      - '80:8000'
+    environment:
+      # ALLOW_EMPTY_PASSWORD is recommended only for development.
+      - ALLOW_EMPTY_PASSWORD=yes
+      - CODEIGNITER_DATABASE_HOST=mariadb
+      - CODEIGNITER_DATABASE_PORT_NUMBER=3306
+      - CODEIGNITER_DATABASE_USER=bn_myapp
+      - CODEIGNITER_DATABASE_NAME=bitnami_myapp
+    volumes:
+      - my-project:/app
+    depends_on:
+      - mariadb
+volumes:
+  my-project:
+9. lalu eksekusi dengan perintah Docker stack Deploy --composefile docker-compose.yml webapptest
+10. cek stack dengan "docker stack ps"
+11. Lalu kalian jga bisa cek dengan docker service "docker service ls && docker service ps webapptest >> (nama service)"
+12. setelahnya kita bisa meng-scale up&down si service tersebut dengan "docker service scale webapptest=3"
+13. lalu kita test dengan menggunakan curl http://ip_serverdocker
+14. maka hasilnya akan seperti ini ...........
+
+
+
+
+
+
+15. Setelahnya kita config server Load balance nya "vim /etc/haproxy/haproxy.cfg" isinya akan seperti ini 
+
+# yang lain default kecuali di bawah ini
+# define frontend ( any name is OK for [http-in] )
+frontend http-in
+        # listen 80 port
+        bind *:80
+        # set default backend
+        default_backend    backend_servers
+        # send X-Forwarded-For header
+        option             forwardfor
+
+# define backend
+backend backend_servers
+        # balance with roundrobin
+        balance            roundrobin
+        # define backend servers
+        server             docker1 10.23.1.10:80 check #ip server1
+        server             docker2 10.23.1.9:80 check  #ip server2
+        server             docker3 10.23.1.8:80 check  #ip server3
+
+16. Kita bisa test apakah Server Load Balance sudah berhasil atau tidak dengan 2 cara : curl ip_loadbalance atau test ip loadbalance di browser kalian masing masing
+
+17. selanjutnya coba test deploy di portainer.io
